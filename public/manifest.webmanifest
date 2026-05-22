@@ -1,0 +1,17 @@
+{
+  "name": "WLS Invoicing System",
+  "short_name": "WLS Invoicing",
+  "description": "Workplace Learning System expense, mileage, and invoicing tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E2231A",
+  "icons": [
+    {
+      "src": "/wls-logo.png",
+      "sizes": "372x216",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
