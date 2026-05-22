@@ -4,6 +4,14 @@ dist-ssr
 *.local
 *.tsbuildinfo
 
+# Expo
+.expo
+web-build
+expo-env.d.ts
+ios
+android
+*.orig.*
+
 # Logs
 logs
 *.log

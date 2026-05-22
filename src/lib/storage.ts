@@ -1,23 +1,32 @@
 import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { randomUUID } from 'expo-crypto';
 import { storage } from './firebase';
 
-function extensionFor(file: File): string {
-  const fromName = file.name.includes('.') ? file.name.split('.').pop() : '';
-  if (fromName) return fromName.toLowerCase();
-  const fromType = file.type.split('/')[1];
-  return fromType || 'jpg';
+function guessExtension(uri: string, mimeType?: string): string {
+  if (mimeType && mimeType.includes('/')) {
+    const sub = mimeType.split('/')[1];
+    if (sub) return sub === 'jpeg' ? 'jpg' : sub;
+  }
+  const match = uri.split('?')[0].match(/\.([a-zA-Z0-9]+)$/);
+  return match ? match[1].toLowerCase() : 'jpg';
 }
 
-// Uploads a receipt/map image and returns its storage path.
+// Uploads a local image (file URI from the image picker) to Cloud Storage and
+// returns its storage path. Works on web and native (both yield a fetchable URI).
 export async function uploadImage(
   uid: string,
   reportId: string,
   folder: 'receipts' | 'maps',
-  file: File,
+  uri: string,
+  mimeType?: string,
 ): Promise<string> {
-  const path = `users/${uid}/reports/${reportId}/${folder}/${crypto.randomUUID()}.${extensionFor(file)}`;
-  const objectRef = ref(storage, path);
-  await uploadBytes(objectRef, file, { contentType: file.type || 'image/jpeg' });
+  const ext = guessExtension(uri, mimeType);
+  const path = `users/${uid}/reports/${reportId}/${folder}/${randomUUID()}.${ext}`;
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  await uploadBytes(ref(storage, path), blob, {
+    contentType: mimeType || blob.type || 'image/jpeg',
+  });
   return path;
 }
 

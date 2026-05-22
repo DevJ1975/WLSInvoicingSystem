@@ -1,5 +1,7 @@
 import { doc, setDoc } from 'firebase/firestore';
-import { auth, db, functionsBaseUrl } from './firebase';
+import { randomUUID } from 'expo-crypto';
+import { Platform } from 'react-native';
+import { auth, db, functionsBaseUrl, webBaseUrl } from './firebase';
 import { updateReport } from './db';
 import type { StatementData } from './statement';
 
@@ -11,16 +13,10 @@ async function authHeader(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1] ?? '');
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+function shareOrigin(): string {
+  if (webBaseUrl) return webBaseUrl;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') return window.location.origin;
+  return '';
 }
 
 // Generates the statement PDF and emails it via the sendReport Cloud Function.
@@ -30,9 +26,8 @@ export async function emailStatement(
   message: string,
 ): Promise<void> {
   if (!functionsBaseUrl) throw new Error('Email is not configured.');
-  const { statementBlob, statementFileName } = await import('../pdf/generate');
-  const blob = await statementBlob(data);
-  const pdfBase64 = await blobToBase64(blob);
+  const { statementPdfBase64, statementFileName } = await import('../pdf/generate');
+  const pdfBase64 = await statementPdfBase64(data);
   const res = await fetch(`${functionsBaseUrl}/sendReport`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
@@ -57,16 +52,13 @@ export async function createShareLink(
   reportId: string,
   existingToken: string | null,
 ): Promise<string> {
-  const token = existingToken ?? crypto.randomUUID().replace(/-/g, '');
-  await setDoc(doc(db, 'shares', token), {
-    uid,
-    reportId,
-    createdAt: Date.now(),
-  });
+  const token = existingToken ?? randomUUID().replace(/-/g, '');
+  await setDoc(doc(db, 'shares', token), { uid, reportId, createdAt: Date.now() });
   if (!existingToken) {
     await updateReport(uid, reportId, { shareToken: token });
   }
-  return `${window.location.origin}/share/${token}`;
+  const origin = shareOrigin();
+  return origin ? `${origin}/share/${token}` : `Share token: ${token}`;
 }
 
 // Fetches a shared statement (public, no auth) via the shareReport function.

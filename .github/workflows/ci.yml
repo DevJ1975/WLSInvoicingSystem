@@ -7,7 +7,7 @@ on:
 
 jobs:
   web:
-    name: Type-check & build (web)
+    name: Type-check & web export
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +23,8 @@ jobs:
       - name: Type-check
         run: npm run typecheck
 
-      - name: Build
-        run: npm run build
+      - name: Export web build
+        run: npx expo export -p web
 
   functions:
     name: Lint Cloud Functions

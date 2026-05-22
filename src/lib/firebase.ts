@@ -1,16 +1,29 @@
+import { Platform } from 'react-native';
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, type Auth, type Persistence } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// getReactNativePersistence ships only in Firebase's React Native build, which
+// Metro resolves at runtime; it is absent from the default (web) type defs.
+const getReactNativePersistence = (
+  firebaseAuth as unknown as {
+    getReactNativePersistence: (storage: unknown) => Persistence;
+  }
+).getReactNativePersistence;
+
+const env = process.env;
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  measurementId: env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 export const firebaseConfigured = Boolean(
@@ -19,12 +32,22 @@ export const firebaseConfigured = Boolean(
 
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+// Native needs explicit AsyncStorage persistence so sessions survive restarts;
+// web uses the default (IndexedDB/local storage) persistence.
+export const auth: Auth =
+  Platform.OS === 'web'
+    ? getAuth(app)
+    : initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Analytics only loads in supported browser contexts (HTTPS); never blocks the app.
-if (firebaseConfig.measurementId) {
+export const functionsBaseUrl = (env.EXPO_PUBLIC_FUNCTIONS_BASE_URL ?? '').replace(/\/$/, '');
+export const webBaseUrl = (env.EXPO_PUBLIC_WEB_BASE_URL ?? '').replace(/\/$/, '');
+export const mapboxToken = env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+
+// Analytics is web-only in the Firebase JS SDK.
+if (Platform.OS === 'web' && firebaseConfig.measurementId) {
   import('firebase/analytics')
     .then(({ getAnalytics, isSupported }) =>
       isSupported().then((ok) => {
@@ -33,6 +56,3 @@ if (firebaseConfig.measurementId) {
     )
     .catch(() => {});
 }
-
-export const functionsBaseUrl = (import.meta.env.VITE_FUNCTIONS_BASE_URL ?? '').replace(/\/$/, '');
-export const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN ?? '';

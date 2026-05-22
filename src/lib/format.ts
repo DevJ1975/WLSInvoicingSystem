@@ -1,19 +1,24 @@
-export function formatCurrency(value: number | null | undefined): string {
-  const n = Number(value ?? 0);
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+// Formatting helpers implemented without Intl so they behave identically on
+// web and on the Hermes engine (where Intl support can vary).
+
+function groupThousands(intPart: string): string {
+  return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 export function formatNumber(value: number | null | undefined, digits = 1): string {
   const n = Number(value ?? 0);
-  return n.toLocaleString('en-US', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
+  const neg = n < 0;
+  const fixed = Math.abs(n).toFixed(digits);
+  const [intPart, decPart] = fixed.split('.');
+  const grouped = groupThousands(intPart);
+  const out = decPart ? `${grouped}.${decPart}` : grouped;
+  return neg ? `-${out}` : out;
+}
+
+export function formatCurrency(value: number | null | undefined): string {
+  const n = Number(value ?? 0);
+  const neg = n < 0;
+  return `${neg ? '-' : ''}$${formatNumber(Math.abs(n), 2)}`;
 }
 
 // Display an ISO date (yyyy-mm-dd) as M/D/YYYY without timezone drift.
