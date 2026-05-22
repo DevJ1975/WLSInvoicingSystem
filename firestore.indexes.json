@@ -1,0 +1,10 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [{ "fieldPath": "shareToken", "order": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}
