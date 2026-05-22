@@ -89,9 +89,23 @@ Put the printed functions base URL into `EXPO_PUBLIC_FUNCTIONS_BASE_URL`.
 ```bash
 npm install -g eas-cli
 eas login
-eas build:configure
-eas build -p android      # produces an .aab/.apk
-eas build -p ios          # requires an Apple Developer account
+eas init                  # links this repo to an Expo project (adds projectId to app.json)
+```
+
+Because `.env` is git-ignored, the `EXPO_PUBLIC_*` values won't reach EAS build
+servers — register them as EAS environment variables once:
+
+```bash
+eas env:create --name EXPO_PUBLIC_FIREBASE_API_KEY --value "..." --environment production
+# ...repeat for each EXPO_PUBLIC_* key (or add them in the Expo dashboard → Environment Variables)
+```
+
+Then build (profiles are defined in `eas.json`):
+
+```bash
+eas build -p android --profile preview      # installable APK for testing
+eas build -p android --profile production    # .aab for Play Store
+eas build -p ios --profile production        # requires an Apple Developer account
 ```
 
 Camera, photo library, and (background) location permissions are declared via the
