@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { firebaseConfigured } from '../lib/firebase';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { PinLockProvider, usePinLock } from '../context/PinLockContext';
 import { ConfigMissing } from '../components/ConfigMissing';
 import { Spinner } from '../components/ui';
 import { COLORS } from '../lib/theme';
@@ -16,6 +17,7 @@ const queryClient = new QueryClient({
 
 function Gate() {
   const { user, loading } = useAuth();
+  const { locked, checking } = usePinLock();
   const segments = useSegments();
   const router = useRouter();
 
@@ -23,11 +25,26 @@ function Gate() {
     if (loading) return;
     const root = segments[0];
     const inPublic = root === 'login' || root === 'share';
-    if (!user && !inPublic) router.replace('/login');
-    else if (user && root === 'login') router.replace('/');
-  }, [user, loading, segments, router]);
+    if (!user) {
+      if (!inPublic) router.replace('/login');
+      return;
+    }
+    if (root === 'login') {
+      router.replace('/');
+      return;
+    }
+    // Authed: gate the app behind the PIN once we know whether one is set.
+    if (checking || inPublic) return;
+    if (locked && root !== 'lock') router.replace('/lock');
+    else if (!locked && root === 'lock') router.replace('/');
+  }, [user, loading, locked, checking, segments, router]);
 
-  if (loading) return <Spinner />;
+  const root = segments[0];
+  const inPublic = root === 'login' || root === 'share';
+  if (loading || (user && checking)) return <Spinner />;
+  // Don't mount a protected screen for a locked session while the redirect to
+  // /lock is still in flight — avoids a one-frame flash of the dashboard.
+  if (user && locked && !inPublic && root !== 'lock') return <Spinner />;
 
   return (
     <Stack
@@ -39,6 +56,7 @@ function Gate() {
       }}
     >
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="lock" options={{ headerShown: false }} />
       <Stack.Screen name="index" options={{ title: 'Expense Reports' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
       <Stack.Screen name="report/[id]" options={{ title: 'Report' }} />
@@ -53,8 +71,10 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <StatusBar style="dark" />
-          <Gate />
+          <PinLockProvider>
+            <StatusBar style="dark" />
+            <Gate />
+          </PinLockProvider>
         </AuthProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
