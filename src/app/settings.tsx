@@ -10,15 +10,64 @@ import {
 } from '../hooks/data';
 import { EMPTY_PROFILE } from '../lib/db';
 import { Button, Card, Field, Input, Spinner } from '../components/ui';
+import { PinSetupSheet, type PinFlow } from '../components/PinSetupSheet';
+import { usePinLock } from '../context/PinLockContext';
+import { useUid } from '../hooks/useUid';
 import { DEFAULT_MILEAGE_RATE, type Profile } from '../lib/types';
 
 export default function SettingsScreen() {
   return (
     <ScrollView className="flex-1 bg-slate-50" contentContainerStyle={{ padding: 16, gap: 16 }}>
       <ProfileCard />
+      <SecurityCard />
       <MileageCard />
       <ClientsCard />
     </ScrollView>
+  );
+}
+
+function SecurityCard() {
+  const uid = useUid();
+  const { hasPin, refresh } = usePinLock();
+  const [flow, setFlow] = useState<PinFlow | null>(null);
+  const [msg, setMsg] = useState('');
+
+  function open(next: PinFlow) {
+    setMsg('');
+    setFlow(next);
+  }
+
+  return (
+    <Card className="p-4">
+      <Text className="text-lg font-semibold text-wls-ink">App PIN</Text>
+      <Text className="mb-3 text-sm text-slate-500">
+        Require a 4-digit PIN each time the app opens. You still sign in with your email and
+        password; the PIN is a quick lock on top.
+      </Text>
+
+      {hasPin ? (
+        <View className="flex-row gap-3">
+          <Button title="Change PIN" variant="secondary" onPress={() => open('change')} />
+          <Button title="Turn off PIN" variant="secondary" onPress={() => open('off')} />
+        </View>
+      ) : (
+        <Button title="Turn on PIN" onPress={() => open('set')} />
+      )}
+
+      {msg ? <Text className="mt-3 text-sm text-green-600">{msg}</Text> : null}
+
+      <PinSetupSheet
+        visible={flow !== null}
+        flow={flow ?? 'set'}
+        uid={uid}
+        onClose={() => setFlow(null)}
+        onDone={async (m) => {
+          await refresh();
+          setFlow(null);
+          setMsg(m);
+        }}
+      />
+    </Card>
   );
 }
 
